@@ -1,0 +1,29 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+
+# Dependency directories
+.pnpm/
+.cache/
+dist/
+.build/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
+
+# Sent news tracking
+sent_news.json
