@@ -1,14 +1,13 @@
 require('dotenv').config();
 const fetch = (...args) =>
   import('node-fetch').then(({ default: fetch }) => fetch(...args));
-const { default: translate } = require('@vitalets/google-translate-api');
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 
 // ——————————————————————————————————————————————
-// CONFIGURAÇÃO
+// SETTINGS
 // ——————————————————————————————————————————————
 const CRYPTOPANIC_API_KEY = process.env.CRYPTOPANIC_API_KEY;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -19,24 +18,14 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
 const sentNewsFile = path.resolve(__dirname, 'sent_news.json');
 let sentNews = [];
 
-// Carrega histórico de IDs já enviados
+// IDs HISTORY LOAD
 if (fs.existsSync(sentNewsFile)) {
   sentNews = JSON.parse(fs.readFileSync(sentNewsFile, 'utf-8'));
 }
 
 // ——————————————————————————————————————————————
-// UTILITÁRIOS
+// MAIN FUNCTIONS
 // ——————————————————————————————————————————————
-async function translateText(text) {
-  try {
-    const res = await translate(text, { to: 'pt' });
-    return res.text;
-  } catch (err) {
-    logger.error(`Erro na tradução: ${err.message}`);
-    return text;
-  }
-}
-
 async function getCryptoPanicNews() {
   const url = `https://cryptopanic.com/api/v1/posts/?auth_token=${CRYPTOPANIC_API_KEY}&public=true&kind=news&regions=pt`;
   try {
@@ -54,11 +43,10 @@ async function sendNewsToTelegram(news) {
     const id = article.id;
     if (sentNews.includes(id)) continue;
 
-    const rawTitle = article.title;
+    const title = article.title;
     const link = article.url;
-    const title = await translateText(rawTitle);
 
-    const message = `<b>${title}</b>\n\n<a href=\"${link}\">Leia mais</a>`;
+    const message = `<b>${title}</b>\n\n<a href="${link}">Leia mais</a>`;
 
     try {
       await bot.sendMessage(
@@ -79,7 +67,7 @@ async function sendNewsToTelegram(news) {
 }
 
 // ——————————————————————————————————————————————
-// LOOP PRINCIPAL
+// MAIN LOOP
 // ——————————————————————————————————————————————
 let firstRun = true;
 
@@ -88,7 +76,7 @@ async function main() {
     const allNews = await getCryptoPanicNews();
 
     if (firstRun) {
-      const initialBatch = allNews.slice(0, 5).reverse();
+      const initialBatch = allNews.slice(0, 1);
       if (initialBatch.length > 0) {
         await sendNewsToTelegram(initialBatch);
       }
