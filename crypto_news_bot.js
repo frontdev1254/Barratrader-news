@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fetch = (...args) =>
   import('node-fetch').then(({ default: fetch }) => fetch(...args));
-const translate = require('@vitalets/google-translate-api').default;
+const { default: translate } = require('@vitalets/google-translate-api');
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
