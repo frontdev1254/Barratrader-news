@@ -10,18 +10,29 @@ const logger = require('./logger');
 // SETTINGS
 // ——————————————————————————————————————————————
 const CRYPTOPANIC_API_KEY = process.env.CRYPTOPANIC_API_KEY;
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const TG_GROUP_ID = process.env.TG_GROUP_ID || '-1002236857439';
-const TG_TOPIC_ID = parseInt(process.env.TG_TOPIC_ID, 10) || 62124;
+const TELEGRAM_TOKEN      = process.env.TELEGRAM_TOKEN;
+const TG_GROUP_ID         = process.env.TG_GROUP_ID   || '-1002236857439';
+const TG_TOPIC_ID         = parseInt(process.env.TG_TOPIC_ID, 10) || 62124;
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
+// Creates the bot in polling mode
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+
+// Loads history of already sent IDs
 const sentNewsFile = path.resolve(__dirname, 'sent_news.json');
 let sentNews = [];
-
-// IDs HISTORY LOAD
 if (fs.existsSync(sentNewsFile)) {
-  sentNews = JSON.parse(fs.readFileSync(sentNewsFile, 'utf-8'));
+  try {
+    sentNews = JSON.parse(fs.readFileSync(sentNewsFile, 'utf-8'));
+  } catch (err) {
+    logger.error(`Erro ao ler histórico: ${err.message}`);
+    sentNews = [];
+  }
 }
+
+// Single log at the start
+console.log(`[${new Date().toISOString()}] 🚀 Bot iniciado em polling. Histórico carregado: ${sentNews.length} IDs.`);
+
+let firstRun = true;
 
 // ——————————————————————————————————————————————
 // MAIN FUNCTIONS
@@ -33,7 +44,7 @@ async function getCryptoPanicNews() {
     const json = await res.json();
     return Array.isArray(json.results) ? json.results : [];
   } catch (err) {
-    logger.error(`Erro ao buscar CryptoPanic: ${err.message}`);
+    logger.error(`Erro ao buscar notícias: ${err.message}`);
     return [];
   }
 }
@@ -44,14 +55,13 @@ async function sendNewsToTelegram(news) {
     if (sentNews.includes(id)) continue;
 
     const title = article.title;
-    const link = article.url;
-
-    const message = `<b>${title}</b>\n\n<a href="${link}">Leia mais</a>`;
+    const link  = article.url;
+    const msg   = `<b>${title}</b>\n\n<a href=\"${link}\">Leia mais</a>`;
 
     try {
       await bot.sendMessage(
         TG_GROUP_ID,
-        message,
+        msg,
         {
           parse_mode: 'HTML',
           disable_web_page_preview: false,
@@ -61,29 +71,49 @@ async function sendNewsToTelegram(news) {
       sentNews.push(id);
       fs.writeFileSync(sentNewsFile, JSON.stringify(sentNews, null, 2), 'utf-8');
     } catch (err) {
-      logger.error(`Erro ao enviar notícia: ${err.message}`);
+      logger.error(`Erro ao enviar para Telegram: ${err.message}`);
     }
   }
 }
 
 // ——————————————————————————————————————————————
-// MAIN LOOP
+// LOOP PRINCIPAL
 // ——————————————————————————————————————————————
-let firstRun = true;
-
 async function main() {
   try {
     const allNews = await getCryptoPanicNews();
 
     if (firstRun) {
-      const initialBatch = allNews.slice(0, 1);
-      if (initialBatch.length > 0) {
-        await sendNewsToTelegram(initialBatch);
+      if (allNews.length > 0) {
+        // Marks all IDs except the most recent one
+        sentNews = allNews.slice(1).map(a => a.id);
+        fs.writeFileSync(sentNewsFile, JSON.stringify(sentNews, null, 2), 'utf-8');
+
+        // Sends only the most recent one
+        const latest = allNews[0];
+        const title  = latest.title;
+        const link   = latest.url;
+        const msg    = `<b>${title}</b>\n\n<a href=\"${link}\">Leia mais</a>`;
+        try {
+          await bot.sendMessage(
+            TG_GROUP_ID,
+            msg,
+            {
+              parse_mode: 'HTML',
+              disable_web_page_preview: false,
+              message_thread_id: TG_TOPIC_ID
+            }
+          );
+          sentNews.push(latest.id);
+          fs.writeFileSync(sentNewsFile, JSON.stringify(sentNews, null, 2), 'utf-8');
+        } catch (err) {
+          logger.error(`Erro ao enviar última notícia: ${err.message}`);
+        }
       }
       firstRun = false;
     } else {
       const fresh = allNews.filter(a => !sentNews.includes(a.id));
-      if (fresh.length > 0) {
+      if (fresh.length) {
         await sendNewsToTelegram(fresh);
       }
     }
@@ -94,4 +124,5 @@ async function main() {
   setTimeout(main, 60 * 1000);
 }
 
+// Starts the loop
 main();
