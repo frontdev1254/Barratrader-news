@@ -55,10 +55,10 @@ npm start
     └── app.log       # Log output from Winston
 ```
 
-## 👤 Author
+## Author
 
 **Igor Souza** – [@frontdev1254](https://github.com/frontdev1254)
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License – see the [LICENSE](./LICENSE) file for details.
